@@ -108,10 +108,15 @@ then
 fi
 
 # 5. Calculate the next version.
-#    Some ugly magic here.
-nr="$(head -n1 debian/changelog | sed -e "s@.*(\(.*\)).*@\1@" \
-    -e "s@^\(.*\)-\([0-9]\+\)-\(.*\)\$@\2@" -e "s@^\(.*\)-\([0-9]\+\)\$@\2@")"
+if [ -e "/etc/debian_version" ]; then
+    # Some ugly magic here.
+    nr="$(head -n1 debian/changelog | sed -e "s@.*(\(.*\)).*@\1@" \
+	-e "s@^\(.*\)-\([0-9]\+\)-\(.*\)\$@\2@" -e "s@^\(.*\)-\([0-9]\+\)\$@\2@")"
+else
+    nr="$(grep ^Branch META  | sed 's@.*\.@@')"
+fi
 pkg_version="$(git describe ${branch} | sed "s@^${APP}-@@")"
+
 if [ "${BRANCH}" = "snapshot" ]; then
     # Allow seemless upgrades between released -> dailies -> different dists.
     # => "0.6.5.6-8-wheezy"                        <= "0.6.5.990-245-gf00828e-244-wheezy-daily"
@@ -134,40 +139,42 @@ fi
 # --> P A C K A G E  U P D A T E <--
 # ----------------------------------
 
-# 6. Setup debian directory.
-echo "=> Start with a clean debian/controls file"
-debian/rules override_dh_prep-base-deb-files
+if [ -e "/etc/debian_version" ]; then
+    # 6. Setup debian directory.
+    echo "=> Start with a clean debian/controls file"
+    debian/rules override_dh_prep-base-deb-files
 
-# 7. Update the GBP config file
-sed -i -e "s,^\(debian-branch\)=.*,\1=${BRANCH}/debian/${DIST}," \
-       -e "s,^\(debian-tag\)=.*\(/\%.*\),\1=${BRANCH}/debian/${DIST}\2," \
-       -e "s,^\(upstream-.*\)=.*,\1=${branch},"  debian/gbp.conf
+    # 7. Update the GBP config file
+    sed -i -e "s,^\(debian-branch\)=.*,\1=${BRANCH}/debian/${DIST}," \
+	   -e "s,^\(debian-tag\)=.*\(/\%.*\),\1=${BRANCH}/debian/${DIST}\2," \
+	   -e "s,^\(upstream-.*\)=.*,\1=${branch},"  debian/gbp.conf
+    
+    # 8. Update and commit
+    echo "=> Update and commit the changelog"
+    if [ "${BRANCH}" = "snapshot" ]; then
+	dist="${DIST}-daily"
+	msg="daily"
 
-# 8. Update and commit
-echo "=> Update and commit the changelog"
-if [ "${BRANCH}" = "snapshot" ]; then
-    dist="${DIST}-daily"
-    msg="daily"
-
-    # Dirty hack, but it's the fastest, easiest way to solve
-    #   E: spl-linux changes: bad-distribution-in-changes-file sid-daily
-    # Don't know why I don't get that for '{wheezy,jessie}-daily as well,
-    # but we do this for all of them, just to make sure.
-    CHANGES_DIR="/usr/share/lintian/vendors/debian/main/data/changes-file"
-    sudo mkdir -p "${CHANGES_DIR}"
-    if [ ! -f "${CHANGES_DIR}/known-dists" ]
-    then
-	echo "${dist}" | sudo tee "${CHANGES_DIR}/known-dists" > /dev/null
+	# Dirty hack, but it's the fastest, easiest way to solve
+	#   E: spl-linux changes: bad-distribution-in-changes-file sid-daily
+	# Don't know why I don't get that for '{wheezy,jessie}-daily as well,
+	# but we do this for all of them, just to make sure.
+	CHANGES_DIR="/usr/share/lintian/vendors/debian/main/data/changes-file"
+	sudo mkdir -p "${CHANGES_DIR}"
+	if [ ! -f "${CHANGES_DIR}/known-dists" ]
+	then
+	    echo "${dist}" | sudo tee "${CHANGES_DIR}/known-dists" > /dev/null
+	else
+	    echo "${dist}" | sudo tee -a "${CHANGES_DIR}/known-dists" > /dev/null
+	fi
     else
-	echo "${dist}" | sudo tee -a "${CHANGES_DIR}/known-dists" > /dev/null
+	dist="${DIST}"
+	msg="upstream"
     fi
-else
-    dist="${DIST}"
-    msg="upstream"
 fi
 
 changed="$(git status | grep -E 'modified:|deleted:|new file:' | wc -l)"
-if [ "${changed}" -gt 0 ]; then
+if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
     # Only change the changelog if we have to!
     debchange --distribution "${dist}" --newversion "${pkg_version}" \
 	      --force-bad-version --force-distribution \
@@ -179,53 +186,73 @@ fi
 # --> S T A R T  T H E  B U I L D <--
 # -----------------------------------
 
-# Install dependencies
-deps="$(dpkg-checkbuilddeps 2>&1 | \
-    sed -e 's,.*dependencies: ,,' -e 's, (.*,,')"
-while [ -n "${deps}" ]; do
-    echo "=> Installing package dependencies"
-    apt-get update > /dev/null 2>&1
-    apt-get install -y ${deps} > /dev/null 2>&1
-    if [ "$?" = "0" ]; then
-	deps="$(dpkg-checkbuilddeps 2>&1 | \
+if [ -e "/etc/debian_version" ]; then
+    # Install dependencies
+    deps="$(dpkg-checkbuilddeps 2>&1 | \
+	sed -e 's,.*dependencies: ,,' -e 's, (.*,,')"
+    while [ -n "${deps}" ]; do
+	echo "=> Installing package dependencies"
+	sudo apt-get update > /dev/null 2>&1
+	sudo apt-get install -y ${deps} > /dev/null 2>&1
+	if [ "$?" = "0" ]; then
+	    deps="$(dpkg-checkbuilddeps 2>&1 | \
 	    sed -e 's,.*dependencies: ,,' -e 's, (.*,,')"
-    else
-	echo "   ERROR: install failed"
-	exit 1
-    fi
-done
+	else
+	    echo "   ERROR: install failed"
+	    exit 1
+	fi
+    done
+fi
 
-if [ "${changed}" -gt 0 ]; then
+if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
     git add META debian/changelog debian/gbp.conf
     git commit -m "New daily release - $(date -R)/${sha}."
 fi
 
 # Build packages
-echo "=> Build the packages"
-type git-buildpackage > /dev/null 2>&1 && \
-    gbp="git-buildpackage" || gbp="gbp buildpackage"
+if [ -e "/etc/debian_version" ]; then
+    echo "=> Build the packages"
+    type git-buildpackage > /dev/null 2>&1 && \
+	gbp="git-buildpackage" || gbp="gbp buildpackage"
 
-[ "${FORCE}" = "true" ] && retag="--git-retag"
-${gbp} --git-ignore-branch --git-keyid="${GPKGKEYID}" --git-tag \
-       --git-ignore-new --git-builder="debuild -i -I -k${GPGKEYID}" \
-       ${retag}
+    [ "${FORCE}" = "true" ] && retag="--git-retag"
+    ${gbp} --git-ignore-branch --git-keyid="${GPKGKEYID}" --git-tag \
+	   --git-ignore-new --git-builder="debuild -i -I -k${GPGKEYID}" \
+	   ${retag}
+elif type rpmbuild > /dev/null 2>&1; then
+    echo "=> Applying patches to non-debian tree"
+    cat debian/patches/series | \
+    while read patch; do
+	patch -p1 < debian/patches/$patch
+    done
 
+    # Build
+    [ -e "configure" ] || ./autogen.sh
+    [ -e "Makefile" ] || ./configure
+    [ -e "rpm/generic/spl.spec" ] && make rpm rpms srpm srpms
+fi
 
 # ------------------------
 # --> F I N I S H  U P <--
 # ------------------------
 
 # Upload packages
-changelog="${APP}-linux_$(head -n1 debian/changelog | \
-    sed "s@.*(\(.*\)).*@\1@")_$(dpkg-architecture -qDEB_BUILD_ARCH).changes"
+if [ -e "/etc/debian_version" ]; then
+    changelog="${APP}-linux_$(head -n1 debian/changelog | \
+	sed "s@.*(\(.*\)).*@\1@")_$(dpkg-architecture -qDEB_BUILD_ARCH).changes"
+fi
 
 # Need to set the directory to the artifacts.
-dir="/home/jenkins/build/"
+dir="/home/jenkins/build/${DIST}/"
 
 # Possibly do the upload
 if [ "${NOUPLOAD}" = "false" -o -z "${NOUPLOAD}" ]; then
     echo "=> Upload packages"
-    dupload "${dir}${changelog}"
+    if [ -e "/etc/debian_version" ]; then
+	dupload "${dir}${changelog}"
+    else
+	scp *.rpm turbo@celia:/usr/src/incoming.jenkins/
+    fi
 fi
 
 # Copy artifacts so they can be archived in Jenkins.
@@ -239,28 +266,34 @@ fi
 mkdir -p "${adir}"
 
 # Read the changelog up to the first '^Checksums-*' line.
-cat "${dir}${changelog}" | \
-while read line; do
-    if echo "${line}" | grep -q "^Checksums-"; then
-        files="$(while read line; do
-	    # Keep reading up to next '^Checksums-*' line.
-	    echo "${line}" | grep -Eq "^Checksums-" && \
-	    break || \
-	    echo "${line}" | sed "s@.* @${dir}@"
-	done)"
+if [ -e "/etc/debian_version" ]; then
+    cat "${dir}${changelog}" | \
+    while read line; do
+	if echo "${line}" | grep -q "^Checksums-"; then
+	    files="$(while read line; do
+		# Keep reading up to next '^Checksums-*' line.
+		echo "${line}" | grep -Eq "^Checksums-" && \
+		break || \
+		echo "${line}" | sed "s@.* @${dir}@"
+	    done)"
 
-	OLD_IFS="${IFS}"
-	IFS="
+	    OLD_IFS="${IFS}"
+	    IFS="
 "
-	cp $(echo "${files}") "${dir}${changelog}" "${adir}"
-	IFS="${OLD_IFS}"
-	break
-    fi
-done
+	    cp $(echo "${files}") "${dir}${changelog}" "${adir}"
+	    IFS="${OLD_IFS}"
+	    break
+	fi
+    done
+else
+    cp *.rpm "${adir}"
+fi
 
 # Push our changes to GitHub
-git push pkg-${APP} --force --all
-git push pkg-${APP} --force --tags
+if [ -e "/etc/debian_version" ]; then
+    git push pkg-${APP} --force --all
+    git push pkg-${APP} --force --tags
+fi
 
 # Record changes
 echo "=> Recording successful build (${sha})"
