@@ -84,8 +84,13 @@ trap stop_gpg_agent EXIT
 
 # This can be randomized if it's not supplied. This so that we
 # can run this from the shell if we want to.
-[ -z "${WORKSPACE}" ] && WORKSPACE="/tmp/docker_build-${APP}_$$"
-[ -d "${WORKSPACE}" ] || mkdir -p "${WORKSPACE}"
+[ -z "${WORKSPACE}" ] && WORKSPACE="/var/lib/jenkins/tmp/docker_build-${APP}_$$"
+[ -d "${WORKSPACE}" ] || mkdir -p "${WORKSPACE}/${DIST}"
+if [ -z "${JENKINS_HOME}" ]; then
+    WORKSPACE_DIR="${WORKSPACE}"
+else
+    WORKSPACE_DIR="$(dirname "${WORKSPACE}")"
+fi
 
 echo "=> Setting up a Docker build (${APP}/${DIST}/${BRANCH})"
 
@@ -112,7 +117,7 @@ docker -H tcp://127.0.0.1:2375 run -u jenkins \
        -v ${HOME}/.gnupg:/home/jenkins/.gnupg \
        -v $(dirname ${SSH_AUTH_SOCK}):$(dirname ${SSH_AUTH_SOCK}) \
        -v $(dirname ${GPG_AGENT_INFO}):$(dirname ${GPG_AGENT_INFO}) \
-       -v $(dirname ${WORKSPACE}):/home/jenkins/build \
+       -v ${WORKSPACE_DIR}:/home/jenkins/build \
        -v ${HOME}/docker_scratch:/tmp/docker_scratch \
        -w "/home/jenkins/build/${DIST}" -e FORCE="${FORCE}" \
        -e JENKINS_HOME="${JENKINS_HOME}" -e APP="${APP}" \
