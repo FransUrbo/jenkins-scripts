@@ -291,8 +291,10 @@ fi
 
 # Push our changes to GitHub
 if [ -e "/etc/debian_version" ]; then
-    git push pkg-${APP} --force --all
-    git push pkg-${APP} --force --tags
+    if echo "${DIST}" | grep -Eq "wheezy|jessie|sid"; then
+	git push pkg-${APP} --force --all
+	git push pkg-${APP} --force --tags
+    fi
 fi
 
 # Record changes
