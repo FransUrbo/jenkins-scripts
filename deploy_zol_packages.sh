@@ -24,12 +24,14 @@ REPREPRO="reprepro --ignore=surprisingbinary --export=never"
 
 # Kill the GPG Agent
 stop_gpg_agent() {
-    echo "=> Stop the GPG Agent"
-    echo "${GPG_AGENT_INFO}" | sed "s,.*:\(.*\):.*,\1," | \
-	xargs --no-run-if-empty kill
+	if [ -n "${GPG_AGENT_STARTED}" ]; then
+		echo "=> Stop the GPG Agent"
+		echo "${GPG_AGENT_INFO}" | sed "s,.*:\(.*\):.*,\1," | \
+			xargs --no-run-if-empty kill
+	fi
 
-    echo "=> Removing lock file"
-    rm -f /var/tmp/deploy_zol_packages.lock
+	echo "=> Removing lock file"
+	rm -f /var/tmp/deploy_zol_packages.lock
 }
 trap stop_gpg_agent EXIT SIGABRT
 
@@ -56,10 +58,11 @@ fi
 
 # Start a GNUPG Agent and prime the passphrase so that signing of the
 # packages etc work without intervention.
-echo "=> Start and prime gnupg"
-if ! gpg-connect-agent /bye 2> /dev/null; then
+if ! gpg-connect-agent /bye 2> /dev/null && [ -z "${GPG_AGENT_INFO}" ]; then
+	echo "=> Starting GPG Agent"
 	eval $(gpg-agent --daemon --allow-preset-passphrase \
 		--write-env-file "${HOME}/.gpg-agent.info")
+	GPG_AGENT_STARTED=y
 fi
 if [ -z "${GPGPASS}" -a -n "${STY}" ]; then
 	# GPGPASS unset but (hopefully/probably) interactive - ask for the pw.
@@ -72,15 +75,6 @@ echo "=> Creating lockfile"
 touch /var/tmp/deploy_zol_packages.lock
 
 cd "${S3_REPO_DIR}"
-
-
-# -------------------------
-# --> S Y N C   R E P O <--
-# -------------------------
-
-# Syncronize the repository
-db="db/"
-s3cmd sync $DELETE s3://archive.zfsonlinux.org/debian/${db} ./${db}
 
 
 # -----------------------------
@@ -148,4 +142,4 @@ done
 # -------------------------
 
 # Syncronize the repository
-#s3cmd sync $DELETE --acl-public ./ s3://archive.zfsonlinux.org/debian/
+s3cmd sync $DELETE --acl-public ./ s3://archive.zfsonlinux.org/debian/
