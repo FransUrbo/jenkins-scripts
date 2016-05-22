@@ -1,7 +1,9 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <matrix-project plugin="matrix-project@1.6">
   <actions/>
-  <description>Build ZFS On Linux ZFS for Debian GNU/Linux Wheezy, Jessie and Sid, CentOS 5, 6 and 7, Fedora 20, 21, 22 and 23, Ubuntu Utopic in Released/Dailies versions.</description>
+  <description>Build ZFS On Linux ZFS for Debian GNU/Linux Wheezy, Jessie and Sid, CentOS 6 and 7, Fedora 20, 21, 22 and 23, Ubuntu Trusty, Utopic in Released/Dailies versions.&#xd;
+&#xd;
+Centos 5: Not supported by ZoL</description>
   <keepDependencies>false</keepDependencies>
   <properties>
     <jenkins.model.BuildDiscarderProperty>
@@ -108,13 +110,13 @@
         <string>wheezy</string>
         <string>jessie</string>
         <string>sid</string>
-        <string>centos5</string>
         <string>centos6</string>
         <string>centos7</string>
         <string>fedora20</string>
         <string>fedora21</string>
         <string>fedora22</string>
         <string>fedora23</string>
+        <string>trusty</string>
         <string>utopic</string>
       </values>
     </hudson.matrix.TextAxis>
