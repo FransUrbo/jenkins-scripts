@@ -82,12 +82,10 @@ else
 fi
 
 # 3. Make sure that the code in the branch have changed.
+file="/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
 sha="$(git log --pretty=oneline --abbrev-commit ${branch} | \
     head -n1 | sed 's@ .*@@')"
-if [ "${FORCE}" = "false" -o -z "${FORCE}" -a \
-     -f "/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}" ]
-then
-    file="/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
+if [ "${FORCE}" = "false" -o -z "${FORCE}" -a -f "${file}" ]; then
     old="$(cat "${file}")"
     if [ "${sha}" = "${old}" ]; then
         echo "=> No point in building - same as previous version."
@@ -102,8 +100,7 @@ fi
 git merge -Xtheirs --no-edit ${branch} 2>&1 | \
     grep -q "^Already up-to-date.$" && \
     no_change=1
-if [ "${FORCE}" = "false" -o -z "${FORCE2}" -a "${no_change}" = "1" \
-     -a "${DIST}" != "sid" ]
+if [ "${FORCE}" = "false" -o -z "${FORCE2}" -a "${no_change}" = "1" ]
 then
     echo "=> No point in building - same as previous version."
     exit 0
@@ -128,6 +125,13 @@ if [ "${BRANCH}" = "snapshot" ]; then
 	wheezy)	subver=".990";;
 	jessie)	subver=".991";;
 	sid)	subver=".999";;
+
+	trusty)	subver=".990";;
+	utopic)	subver=".991";;
+	vivid)	subver=".992";;
+	wily)	subver=".993";;
+	xenial)	subver=".994";;
+
 	*)	subver="";;
     esac
 
