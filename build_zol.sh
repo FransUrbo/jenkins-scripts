@@ -245,7 +245,8 @@ if [ -e "/etc/debian_version" ]; then
 fi
 
 # Need to set the directory to the artifacts.
-dir="/home/jenkins/build/${DIST}/"
+dir="/home/jenkins/build/"
+[ -z "${JENKINS_HOME}" ] && dir="${dir}/${DIST}/"
 
 # Possibly do the upload
 if [ "${NOUPLOAD}" = "false" -o -z "${NOUPLOAD}" ]; then
