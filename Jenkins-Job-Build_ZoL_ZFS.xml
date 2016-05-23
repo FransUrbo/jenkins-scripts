@@ -224,7 +224,7 @@ rm -f &quot;${WORKSPACE}/.Build_ZoL_ZFS_${BUILD_NUMBER}_env&quot;</command>
     </org.jenkinsci.plugins.postbuildscript.PostBuildScript>
     <hudson.tasks.ArtifactArchiver>
       <artifacts>artifacts/*</artifacts>
-      <allowEmptyArchive>false</allowEmptyArchive>
+      <allowEmptyArchive>true</allowEmptyArchive>
       <onlyIfSuccessful>true</onlyIfSuccessful>
       <fingerprint>true</fingerprint>
       <defaultExcludes>true</defaultExcludes>
