@@ -84,7 +84,7 @@ fi
 # 3. Make sure that the code in the branch have changed.
 sha="$(git log --pretty=oneline --abbrev-commit ${branch} | \
     head -n1 | sed 's@ .*@@')"
-if [ "${FORCE}" = "false" -a \
+if [ "${FORCE}" = "false" -o -z "${FORCE}" -a \
      -f "/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}" ]
 then
     file="/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
@@ -97,11 +97,13 @@ fi
 
 # 4. Get the latest upstream tag.
 #    If there's no changes, exit successfully here.
-#    However, if we're called with FORCE set, then ignore this and continue anyway.
+#    However, if we're called with FORCE set, then ignore this and continue
+#    anyway.
 git merge -Xtheirs --no-edit ${branch} 2>&1 | \
     grep -q "^Already up-to-date.$" && \
     no_change=1
-if [ "${FORCE}" = "false" -a "${no_change}" = "1" -a "${DIST}" != "sid" ]
+if [ "${FORCE}" = "false" -o -z "${FORCE2}" -a "${no_change}" = "1" \
+     -a "${DIST}" != "sid" ]
 then
     echo "=> No point in building - same as previous version."
     exit 0
