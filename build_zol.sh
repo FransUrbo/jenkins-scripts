@@ -64,10 +64,18 @@ fi
 # If a previous successfull checkout of a non-debian version below created
 # a branch, we need to destroy it here. Better than forcing a destroy of the
 # workspace before build starts.
-echo "${DIST}" | grep -Eq "wheezy|jessie|sid" || \
-    git show ${BRANCH}/debian/${DIST} > /dev/null 2>&1 && \
-    git checkout pkg-${APP}/readme && \
+if echo "${DIST}" | grep -Eq "wheezy|jessie|sid" || \
+    git show ${BRANCH}/debian/${DIST} > /dev/null 2>&1
+then
+    git checkout pkg-${APP}/readme
     git branch -D ${BRANCH}/debian/${DIST}
+
+    # Remove any tags as well.
+    git tag -l snapshot/debian/wily/* | \
+	while read snap; do
+	    git tag -d "${snap}"
+	done
+fi
 
 # NOTE: Jenkins checkes out a commitId, even if a branch is specified!!
 
