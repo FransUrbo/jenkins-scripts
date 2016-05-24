@@ -71,7 +71,7 @@ then
     git branch -D ${BRANCH}/debian/${DIST}
 
     # Remove any tags as well.
-    git tag -l snapshot/debian/wily/* | \
+    git tag -l ${BRANCH}/debian/${DIST}/* | \
 	while read snap; do
 	    git tag -d "${snap}"
 	done
