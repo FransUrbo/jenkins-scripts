@@ -60,8 +60,16 @@ fi
 # --> C O D E  D I S C O V E R Y <--
 # ----------------------------------
 
+# TODO - eventually we might want to push non-debian branches to.
+# If a previous successfull checkout of a non-debian version below created
+# a branch, we need to destroy it here. Better than forcing a destroy of the
+# workspace before build starts.
+echo "${DIST}" | grep -Eq "wheezy|jessie|sid" || \
+    git show ${BRANCH}/debian/${DIST} > /dev/null 2>&1 && \
+    git checkout pkg-${APP}/readme && \
+    git branch -D ${BRANCH}/debian/${DIST}
+
 # NOTE: Jenkins checkes out a commitId, even if a branch is specified!!
-#       Also, it don't seem to be possible to use build variables in there.
 
 # 1. Checkout the correct branch.
 if ! git show pkg-${APP}/${BRANCH}/debian/${DIST} > /dev/null 2>&1; then
@@ -309,6 +317,7 @@ fi
 
 # Push our changes to GitHub
 if [ -e "/etc/debian_version" ]; then
+    # TODO - eventually we might want to push non-debian branches to.
     if echo "${DIST}" | grep -Eq "wheezy|jessie|sid"; then
 	git push pkg-${APP} --force --all
 	git push pkg-${APP} --force --tags
