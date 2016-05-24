@@ -48,12 +48,20 @@ git config --global user.email "${GITEMAIL}"
 
 if [ -z "${JENKINS_HOME}" ]; then
     # Checking out the code.
-    git clone --origin pkg-${APP} git@github.com:zfsonlinux/pkg-${APP}.git
-    cd pkg-${APP}
+    if [ -d "pkg-${APP}" ]; then
+	cd pkg-${APP}
 
-    # Add remote ${APP}.
-    git remote add ${APP} git@github.com:zfsonlinux/${APP}.git
-    git fetch ${APP}
+	find -name .gitignore | xargs --no-run-if-empty rm
+	git clean --force -d
+	git reset --hard
+    else
+	git clone --origin pkg-${APP} git@github.com:zfsonlinux/pkg-${APP}.git
+	cd pkg-${APP}
+
+	# Add remote ${APP}.
+	git remote add ${APP} git@github.com:zfsonlinux/${APP}.git
+	git fetch ${APP}
+    fi
 fi
 
 # ----------------------------------
@@ -276,11 +284,11 @@ elif type rpmbuild > /dev/null 2>&1; then
 	while read patch; do
 	    patch -p1 < "debian/patches/${patch}"
 	done
-    if [ -f "/tmp/docker_scratch/rpm_zfs+debian-patches.patch" ]; then
-	# This patch is for modifying the rpm building to include the
-	# Debian GNU/Linux patches just applied.
-	cat /tmp/docker_scratch/rpm_zfs+debian-patches.patch | \
-	    patch -p1
+    if [ -f "/tmp/docker_scratch/rpm_zfs-EXTRA_DIST.patch" ]; then
+	# This patch is to make sure that the examples in etc/zfs
+	# is included in the source RPM.
+	cat /tmp/docker_scratch/rpm_zfs-EXTRA_DIST.patch | \
+	    patch -p0
     fi
     
     # Configure options to avoid building binary modules.
