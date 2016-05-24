@@ -254,7 +254,7 @@ elif type rpmbuild > /dev/null 2>&1; then
     # Build
     [ -e "configure" ] || ./autogen.sh
     [ -e "Makefile" ] || ./configure
-    [ -e "rpm/generic/spl.spec" ] && make rpm rpms srpm srpms
+    [ -e "rpm/generic/spl.spec" ] && make rpm-utils
 fi
 
 # ------------------------
