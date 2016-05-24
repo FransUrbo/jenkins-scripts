@@ -64,14 +64,22 @@ fi
 # If a previous successfull checkout of a non-debian version below created
 # a branch, we need to destroy it here. Better than forcing a destroy of the
 # workspace before build starts.
-if echo "${DIST}" | grep -Eq "wheezy|jessie|sid" || \
-    git show ${BRANCH}/debian/${DIST} > /dev/null 2>&1
+if echo "${DIST}" | grep -Eq "wheezy|jessie|sid" ||
+    git show ${BRANCH}/debian/${DIST} > /dev/null 2>&1 ||
+    git show pkg-${APP}/${BRANCH}/debian/${DIST} > /dev/null 2>&1
 then
     git checkout pkg-${APP}/readme
-    git branch -D ${BRANCH}/debian/${DIST}
+
+    # Remove any matching branch we find.
+    (git branch ; git branch -r) | \
+	grep "${BRANCH}/debian/${DIST}" | \
+	while read branch; do
+	    git branch -D "${branch}"
+	done
 
     # Remove any tags as well.
-    git tag -l ${BRANCH}/debian/${DIST}/* | \
+    (git tag ; git tag -l ${BRANCH}/debian/${DIST}/*) | \
+	grep "${BRANCH}/debian/${DIST}" | \
 	while read snap; do
 	    git tag -d "${snap}"
 	done
@@ -229,12 +237,22 @@ if [ -e "/etc/debian_version" ]; then
 	sudo apt-get install -y ${deps} > /dev/null 2>&1
 	if [ "$?" = "0" ]; then
 	    deps="$(dpkg-checkbuilddeps 2>&1 | \
-	    sed -e 's,.*dependencies: ,,' -e 's, (.*,,')"
+		sed -e 's,.*dependencies: ,,' -e 's, (.*,,')"
 	else
 	    echo "   ERROR: install failed"
 	    exit 1
 	fi
     done
+elif type yum > /dev/null 2>&1; then
+    deps="$(grep ^BuildRequires: rpm/generic/zfs.spec.in | sed 's@.*: @@')"
+    if [ -n "${deps}" ]; then
+	echo "=> Installing package dependencies"
+	sudo yum install -y ${deps} > /dev/null 2>&1
+	if [ "$?" != "0" ]; then
+	    echo "   ERROR: install failed"
+	    exit 1
+	fi
+    fi
 fi
 
 if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
@@ -255,14 +273,24 @@ if [ -e "/etc/debian_version" ]; then
 elif type rpmbuild > /dev/null 2>&1; then
     echo "=> Applying patches to non-debian tree"
     cat debian/patches/series | \
-    while read patch; do
-	patch -p1 < debian/patches/$patch
-    done
-
+	while read patch; do
+	    patch -p1 < "debian/patches/${patch}"
+	done
+    if [ -f "/tmp/docker_scratch/rpm_zfs+debian-patches.patch" ]; then
+	# This patch is for modifying the rpm building to include the
+	# Debian GNU/Linux patches just applied.
+	cat /tmp/docker_scratch/rpm_zfs+debian-patches.patch | \
+	    patch -p1
+    fi
+    
+    # Configure options to avoid building binary modules.
+    conf_opts="--with-config=user --bindir=/bin --sbindir=/sbin"
+    conf_opts="${conf_opts} --libdir=/lib --with-udevdir=/lib/udev"
+		 
     # Build
     [ -e "configure" ] || ./autogen.sh
-    [ -e "Makefile" ] || ./configure
-    [ -e "rpm/generic/spl.spec" ] && make rpm-utils
+    [ -e "Makefile" ] || ./configure ${conf_opts}
+    [ -e "rpm/generic/${APP}.spec" ] && make rpm-utils
 fi
 
 # ------------------------
