@@ -179,12 +179,23 @@ if [ -e "/etc/debian_version" ]; then
     fi
 fi
 
+if [ "${BRANCH}" = "snapshot" -a "${PATCHES}" = "true" ]; then
+    # Force pull debian/patches from snapshot/debian/wheezy.
+    # This allow us to update the patches in ONE branch manually,
+    # and these will be then used in every other build.
+    git merge snapshot/debian/wheezy -- debian/patches
+    git add debian/patches/*
+    patches_updated_msg="Debian patches updated - "
+fi
+
 changed="$(git status | grep -E 'modified:|deleted:|new file:' | wc -l)"
 if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
     # Only change the changelog if we have to!
+    commit="New ${msg} release - ${patches_updated_msg}$(date -R)/${sha}."
+
     debchange --distribution "${dist}" --newversion "${pkg_version}" \
 	      --force-bad-version --force-distribution \
-	      --maintmaint "New $msg release - ${sha}."
+	      --maintmaint "${commit}"
 fi
 
 
@@ -212,7 +223,7 @@ fi
 
 if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
     git add META debian/changelog debian/gbp.conf
-    git commit -m "New daily release - $(date -R)/${sha}."
+    git commit -m "${commit}"
 fi
 
 # Build packages

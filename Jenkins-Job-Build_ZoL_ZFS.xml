@@ -35,6 +35,11 @@ Centos 5: Not supported by ZoL</description>
           <description>If set, no upload of artifacts will be done in the build script.</description>
           <defaultValue>false</defaultValue>
         </hudson.model.BooleanParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>PATCHES</name>
+          <description>Pull debian/patches from snapshot/debian/wheezy.</description>
+          <defaultValue>false</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
     <EnvInjectJobProperty plugin="envinject@1.92.1">
