@@ -322,7 +322,7 @@ if [ -e "/etc/debian_version" ]; then
 elif type rpmbuild > /dev/null 2>&1; then
     if [ -f "debian/patches/series" ]; then
 	echo "=> Applying patches to non-debian tree"
-	cat debian/patches/series | \
+	cat debian/patches/series | grep -v "^#" | \
 	    while read patch; do
 		patch -p1 < "debian/patches/${patch}"
 	    done
