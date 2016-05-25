@@ -135,6 +135,10 @@ while /bin/true; do
     if [ "$?" = "0" ]; then
 	# Success - exit success.
 	exit 0
+    elif [ "$?" = "1" ]; then
+	# Build script exited with failure - exit with error
+	echo "=> Build failed."
+	exit 1
     elif [ "${cnt}" -ge "5" ]; then
 	# ERROR. And we've tried long enough - exit error.
 	echo "=> Tried five times, wouldn't start!"
