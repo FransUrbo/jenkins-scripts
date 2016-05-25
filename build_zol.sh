@@ -228,11 +228,12 @@ if [ -e "/etc/debian_version" ]; then
     fi
 fi
 
-if [ "${BRANCH}" = "snapshot" -a "${PATCHES}" = "true" ]; then
+if [ "${BRANCH}" = "snapshot" -a "${PATCHES}" = "true" -a "${DIST}" != "wheezy" ]
+then
     # Force pull debian/patches from snapshot/debian/wheezy.
     # This allow us to update the patches in ONE branch manually,
     # and these will be then used in every other build.
-    git checkout snapshot/debian/wheezy -- debian/patches
+    git checkout pkg-${APP}/snapshot/debian/wheezy -- debian/patches
     git add debian/patches/*
     patches_updated_msg="Debian patches updated - "
 fi
