@@ -17,20 +17,21 @@ BUILD_SCRIPT="/tmp/docker_scratch/build_zol.sh"
 #   * As build parameters:
 #     These will be passed on to the build script, and can there for be
 #     seen in a 'ps' output!
-#     APP		What repository to build (spl, zfs)
-#     DIST		What distribution to build for (wheezy, jessie, sid)
-#     BRANCH		What base branch to build (master, snapshot)
+#     APP			What repository to build (spl, zfs)
+#     DIST			What distribution to build for (wheezy,
+#				jessie, sid)
+#     BRANCH			What base branch to build (master, snapshot)
 #   * From the 'Environment Injector' plugin:
 #     + As a 'normal' environment variable
 #       These will be passed on to the build script, and can there for be
 #       seen in a 'ps' output!
-#       GITNAME		Full name to use for commits
-#       GITEMAIL	Email address to use for commits
-#       GPGKEYID	GPG Key ID
+#       GIT_AUTHOR_NAME		Full name to use for commits
+#       GIT_AUTHOR_EMAIL	Email address to use for commits
 #     + As a password environment variable (will be masked).
 #       These will NOT be passed on to the build script.
-#       GPGCACHEID	GPG Key ID. See gpg-preset-passphrase(1)
-#       GPGPASS		GPG Passphrase
+#       GPGCACHEID		GPG Key ID. See gpg-preset-passphrase(1)
+#       GPGPASS			GPG Passphrase
+#       GPGKEYID		GPG Key ID
 # If not running from Jenkins, set this in the environment normaly.
 #
 # The following optional values can be set:
@@ -64,8 +65,8 @@ elif [ -n "${1}" -a -n "${2}" -a -n "${3}" ]; then
     APP="${1}" ; DIST="${2}" ; BRANCH="${3}"
 fi
 
-if [ -z "${APP}" -o -z "${DIST}" -o -z "${BRANCH}" -o -z "${GITNAME}" \
-	-o -z "${GITEMAIL}" -o -z "${GPGCACHEID}" -o -z "${GPGPASS}" \
+if [ -z "${APP}" -o -z "${DIST}" -o -z "${BRANCH}" -o -z "${GIT_AUTHOR_NAME}" \
+	-o -z "${GIT_AUTHOR_EMAIL}" -o -z "${GPGCACHEID}" -o -z "${GPGPASS}" \
 	-o -z "${GPGKEYID}" ]
 then
     echo -n "ERROR: One (or more) of APP, DIST, BRANCH, GITNAME, GITEMAIL, "
@@ -124,7 +125,7 @@ docker -H tcp://127.0.0.1:2375 run -u jenkins \
        -e DIST="${DIST}" -e BRANCH="${BRANCH}" -e NOUPLOAD="${NOUPLOAD}" \
        -e LOGNAME="${LOGNAME}" -e SSH_AUTH_SOCK="${SSH_AUTH_SOCK}" \
        -e GPG_AGENT_INFO="${GPG_AGENT_INFO}" -e WORKSPACE="${WORKSPACE}" \
-       -e GITNAME="${GITNAME}" -e GITEMAIL="${GITEMAIL}" \
-       -e payload="${payload}" -e GPGKEYID="${GPGKEYID}" \
-       -e PATCHES="${PATCHES}" \
+       -e GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME}" -e payload="${payload}" \
+       -e GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL}" -e GPGKEYID="${GPGKEYID}" \
+       -e PATCHES="${PATCHES}" -e GIT_PREVIOUS_COMMIT="${GIT_PREVIOUS_COMMIT}" \
        --rm ${IT} fransurbo/devel:${DIST} ${script}
