@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<matrix-project plugin="matrix-project@1.6">
+<matrix-project plugin="matrix-project@1.7">
   <actions/>
   <description>Build ZFS On Linux SPL for Debian GNU/Linux Wheezy (v7), Jessie (v8) and Sid, CentOS 6 and 7, Fedora 20, 21, 22 and 23, Ubuntu Trusty (v14.04), Utopic (v14.10), Vivid (v15.04), Wily (v15.10) and Xenial (v16.04) in Released/Dailies versions.&#xd;
 &#xd;
@@ -14,11 +14,10 @@ Centos 5: Not supported by ZoL</description>
         <artifactNumToKeep>8</artifactNumToKeep>
       </strategy>
     </jenkins.model.BuildDiscarderProperty>
-    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.19.0">
+    <com.coravy.hudson.plugins.github.GithubProjectProperty plugin="github@1.19.1">
       <projectUrl>https://github.com/zfsonlinux/spl/</projectUrl>
       <displayName>spl-autobuilder-debian</displayName>
     </com.coravy.hudson.plugins.github.GithubProjectProperty>
-    <hudson.plugins.libvirt.BeforeJobSnapshotJobProperty plugin="libvirt-slave@1.8.5"/>
     <hudson.model.ParametersDefinitionProperty>
       <parameterDefinitions>
         <hudson.plugins.matrix__configuration__parameter.MatrixCombinationsParameterDefinition plugin="matrix-combinations-parameter@1.0.9">
@@ -96,7 +95,7 @@ Centos 5: Not supported by ZoL</description>
   <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
   <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
   <triggers>
-    <com.cloudbees.jenkins.GitHubPushTrigger plugin="github@1.19.0">
+    <com.cloudbees.jenkins.GitHubPushTrigger plugin="github@1.19.1">
       <spec></spec>
     </com.cloudbees.jenkins.GitHubPushTrigger>
   </triggers>
@@ -131,21 +130,21 @@ Centos 5: Not supported by ZoL</description>
   </axes>
   <builders>
     <hudson.tasks.Shell>
-      <command>#!/bin/sh
+      <command>#!/bin/sh -xe
 
 FILE=&quot;${JENKINS_HOME}/docker_scratch/.Build_ZoL_SPL_${BUILD_NUMBER}_env&quot;
 
 : &gt; &quot;${FILE}&quot;
 chmod 600 &quot;${FILE}&quot;
 
-echo &quot;export GITNAME=&apos;${GITNAME}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
-echo &quot;export GITEMAIL=&apos;${GITEMAIL}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
+echo &quot;export GIT_AUTHOR_NAME=&apos;${GIT_AUTHOR_NAME}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
+echo &quot;export GIT_AUTHOR_EMAIL=&apos;${GIT_AUTHOR_EMAIL}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 
 echo &quot;export GPGKEYID=&apos;${GPGKEYID}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 echo &quot;export GPGPASS=&apos;${GPGPASS}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 echo &quot;export GPGCACHEID=&apos;${GPGCACHEID}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 
-echo &quot;export APP=&apos;${APP}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
+echo &quot;export APP=&apos;spl&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 echo &quot;export BRANCH=&apos;${BRANCH}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 echo &quot;export DIST=&apos;${DIST}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 
@@ -243,7 +242,7 @@ rm -f &quot;${WORKSPACE}/.Build_ZoL_SPL_${BUILD_NUMBER}_env&quot;</command>
     </hudson.tasks.Mailer>
   </publishers>
   <buildWrappers>
-    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.7.4"/>
+    <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.8.2"/>
     <EnvInjectPasswordWrapper plugin="envinject@1.92.1">
       <injectGlobalPasswords>true</injectGlobalPasswords>
       <maskPasswordParameters>true</maskPasswordParameters>
@@ -268,7 +267,6 @@ rm -f &quot;${WORKSPACE}/.Build_ZoL_SPL_${BUILD_NUMBER}_env&quot;</command>
       </credentialIds>
       <ignoreMissing>false</ignoreMissing>
     </com.cloudbees.jenkins.plugins.sshagent.SSHAgentBuildWrapper>
-    <org.jenkinsci.plugins.testinprogress.TestInProgressBuildWrapper plugin="testInProgress@1.4"/>
   </buildWrappers>
   <executionStrategy class="hudson.matrix.DefaultMatrixExecutionStrategyImpl">
     <runSequentially>false</runSequentially>
