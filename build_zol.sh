@@ -38,13 +38,17 @@ then
     cp /tmp/docker_scratch/known_hosts "${HOME}/.ssh/known_hosts"
 fi
 
-# Setup user for commits (including merges).
-git config --global user.name "${GITNAME}"
-git config --global user.email "${GITEMAIL}"
 
 # --------------------------------
 # --> C O D E  C H E C K O U T <--
 # --------------------------------
+
+# --> This is where we (possibly) download the code.
+# --> Should only happen if we're NOT running under Jenkins.
+
+# Setup user for commits (including merges).
+git config --global user.name "${GIT_AUTHOR_NAME}"
+git config --global user.email "${GIT_AUTHOR_EMAIL}"
 
 if [ -z "${JENKINS_HOME}" ]; then
     # Checking out the code.
@@ -64,29 +68,38 @@ if [ -z "${JENKINS_HOME}" ]; then
     fi
 fi
 
+
 # ----------------------------------
 # --> C O D E  D I S C O V E R Y <--
 # ----------------------------------
 
+# --> This is where we figure out _what_ to build. This is dependent
+# --> on how we're called - app, branch and dist.
+# --> Checks out the correct branch, figure out the upstream version,
+# --> merge in (possible) upstream changes and then sets up the version
+# --> number accordingly.
+# --> We have a couple of exit strategies in place here an there to make
+# --> sure we only build stuff that's actually new.
+
 # TODO - eventually we might want to push non-debian branches to.
 # If a previous successfull checkout of a non-debian version below created
 # a branch, we need to destroy it here. Better than forcing a destroy of the
-# workspace before build starts.
-if echo "${DIST}" | grep -Eq "wheezy|jessie|sid" ||
-    git show ${BRANCH}/debian/${DIST} > /dev/null 2>&1 ||
-    git show pkg-${APP}/${BRANCH}/debian/${DIST} > /dev/null 2>&1
+# whole workspace before build starts.
+if ! echo "${DIST}" | grep -Eq "wheezy|jessie|sid" && \
+    (git show ${BRANCH}/debian/${DIST} || \
+     git show pkg-${APP}/${BRANCH}/debian/${DIST}) > /dev/null 2>&1
 then
     git checkout pkg-${APP}/readme
 
     # Remove any matching branch we find.
-    (git branch ; git branch -r) | \
+    (git branch ; git branch -r) | sort | uniq | \
 	grep "${BRANCH}/debian/${DIST}" | \
 	while read branch; do
 	    git branch -D "${branch}"
 	done
 
     # Remove any tags as well.
-    (git tag ; git tag -l ${BRANCH}/debian/${DIST}/*) | \
+    (git tag ; git tag -l ${BRANCH}/debian/${DIST}/*) | sort | uniq | \
 	grep "${BRANCH}/debian/${DIST}" | \
 	while read snap; do
 	    git tag -d "${snap}"
@@ -117,7 +130,7 @@ fi
 file="/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
 sha="$(git log --pretty=oneline --abbrev-commit ${branch} | \
     head -n1 | sed 's@ .*@@')"
-if [ "${FORCE}" = "false" -o -z "${FORCE}" -a -f "${file}" ]; then
+if [ "${FORCE}" = "false" -o -z "${FORCE}" ] && [ -f "${file}" ]; then
     old="$(cat "${file}")"
     if [ "${sha}" = "${old}" ]; then
         echo "=> No point in building - same as previous version."
@@ -132,7 +145,7 @@ fi
 git merge -Xtheirs --no-edit ${branch} 2>&1 | \
     grep -q "^Already up-to-date.$" && \
     no_change=1
-if [ "${FORCE}" = "false" -o -z "${FORCE2}" -a "${no_change}" = "1" ]
+if [ "${FORCE}" = "false" -o -z "${FORCE}" ] && [ "${no_change}" = "1" ]
 then
     echo "=> No point in building - same as previous version."
     exit 0
@@ -173,9 +186,13 @@ else
     pkg_version="${pkg_version}-$(expr ${nr} + 1)-${DIST}"
 fi
 
+
 # ----------------------------------
 # --> P A C K A G E  U P D A T E <--
 # ----------------------------------
+
+# --> This is where we update the debian/changelog (if building debs) and sets up
+# --> a change log message.
 
 if [ -e "/etc/debian_version" ]; then
     # 6. Setup debian directory.
@@ -215,7 +232,7 @@ if [ "${BRANCH}" = "snapshot" -a "${PATCHES}" = "true" ]; then
     # Force pull debian/patches from snapshot/debian/wheezy.
     # This allow us to update the patches in ONE branch manually,
     # and these will be then used in every other build.
-    git merge snapshot/debian/wheezy -- debian/patches
+    git checkout snapshot/debian/wheezy -- debian/patches
     git add debian/patches/*
     patches_updated_msg="Debian patches updated - "
 fi
@@ -223,8 +240,12 @@ fi
 changed="$(git status | grep -E 'modified:|deleted:|new file:' | wc -l)"
 if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
     # Only change the changelog if we have to!
-    commit="New ${msg} release - ${patches_updated_msg}$(date -R)/${sha}."
+    commit="<<EOF
+New ${msg} release - ${patches_updated_msg}$(date -R)/${sha}.
 
+$(git log --pretty=oneline --abbrev-commit ${GIT_PREVIOUS_COMMIT}..HEAD)
+EOF
+"
     debchange --distribution "${dist}" --newversion "${pkg_version}" \
 	      --force-bad-version --force-distribution \
 	      --maintmaint "${commit}"
@@ -234,6 +255,14 @@ fi
 # -----------------------------------
 # --> S T A R T  T H E  B U I L D <--
 # -----------------------------------
+
+# --> Ah, this is the interesting bit. The one we've worked so hard
+# --> to get to - "The Build(tm)"!
+# --> But before that, we need to install any build dependencies and
+# --> tag changed files as "ready for commit".
+# --> Again, we offer an exit strategy in case the packages have already
+# --> been built.
+# --> Depending on if we're building debs or rpms, we do things differently.
 
 if [ -e "/etc/debian_version" ]; then
     # Install dependencies
@@ -252,7 +281,7 @@ if [ -e "/etc/debian_version" ]; then
 	fi
     done
 elif type yum > /dev/null 2>&1; then
-    deps="$(grep ^BuildRequires: rpm/generic/zfs.spec.in | sed 's@.*: @@')"
+    deps="$(grep ^BuildRequires: rpm/generic/${APP}.spec.in | sed 's@.*: @@')"
     if [ -n "${deps}" ]; then
 	echo "=> Installing package dependencies"
 	sudo yum install -y ${deps} > /dev/null 2>&1
@@ -274,19 +303,34 @@ if [ -e "/etc/debian_version" ]; then
     type git-buildpackage > /dev/null 2>&1 && \
 	gbp="git-buildpackage" || gbp="gbp buildpackage"
 
-    [ "${FORCE}" = "true" ] && retag="--git-retag"
+    if [ "${FORCE}" = "true" ]; then
+	retag="--git-retag"
+    else
+	pkg_ver="$(head -n1 debian/changelog | sed "s@.*(\(.*\)).*@\1@")"
+	if git show "${BRANCH}/debian/${DIST}/${pkg_ver}" > /dev/null 2>&1;
+	then
+	    # Branch already exists, and we're not running in force mode
+	    echo "=> No point in building - tag already exists so already built."
+	    exit 0
+	fi
+    fi
+
     ${gbp} --git-ignore-branch --git-keyid="${GPKGKEYID}" --git-tag \
 	   --git-ignore-new --git-builder="debuild -i -I -k${GPGKEYID}" \
 	   ${retag}
 elif type rpmbuild > /dev/null 2>&1; then
-    echo "=> Applying patches to non-debian tree"
-    cat debian/patches/series | \
-	while read patch; do
-	    patch -p1 < "debian/patches/${patch}"
-	done
-    if [ -f "/tmp/docker_scratch/rpm_zfs-EXTRA_DIST.patch" ]; then
+    if [ -f "debian/patches/series" ]; then
+	echo "=> Applying patches to non-debian tree"
+	cat debian/patches/series | \
+	    while read patch; do
+		patch -p1 < "debian/patches/${patch}"
+	    done
+    fi
+    if [ "${APP}" = "zfs" -a -f "/tmp/docker_scratch/rpm_zfs-EXTRA_DIST.patch" ]
+    then
 	# This patch is to make sure that the examples in etc/zfs
 	# is included in the source RPM.
+	echo "=> Applying rpm fixes"
 	cat /tmp/docker_scratch/rpm_zfs-EXTRA_DIST.patch | \
 	    patch -p0
     fi
@@ -301,9 +345,16 @@ elif type rpmbuild > /dev/null 2>&1; then
     [ -e "rpm/generic/${APP}.spec" ] && make rpm-utils
 fi
 
+
 # ------------------------
 # --> F I N I S H  U P <--
 # ------------------------
+
+# --> All done! Now time to upload our finished packages to our FTP
+# --> archive. Also allow for Jenkins to archive the artifacts and to
+# --> push any new branches and/or tags to GitHub (only if building debs
+# --> for now).
+# --> At the very end, we just record this commit as a successful build.
 
 # Upload packages
 if [ -e "/etc/debian_version" ]; then
@@ -321,6 +372,8 @@ if [ "${NOUPLOAD}" = "false" -o -z "${NOUPLOAD}" ]; then
     if [ -e "/etc/debian_version" ]; then
 	dupload "${dir}${changelog}"
     else
+	# TODO: This is kind'a hardcoded - is there any option in Jenkins
+	#       we could use?
 	scp *.rpm turbo@celia:/usr/src/incoming.jenkins/
     fi
 fi
@@ -371,3 +424,5 @@ fi
 # Record changes
 echo "=> Recording successful build (${sha})"
 echo "${sha}" > "/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
+
+exit 0
