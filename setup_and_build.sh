@@ -113,8 +113,10 @@ echo "${GPGPASS}" | /usr/lib/gnupg2/gpg-preset-passphrase -v -c ${GPGCACHEID}
 # Start a docker container.
 # Inside there is where the actual build takes place, using the
 # 'build_zol.zh' script.
+set +e ; cnt=0
 echo "=> Starting docker image fransurbo/devel:${DIST}"
-docker -H tcp://127.0.0.1:2375 run -u jenkins \
+while /bin/true; do
+    docker -H tcp://127.0.0.1:2375 run -u jenkins \
        -v "${HOME}/.gnupg":"/home/jenkins/.gnupg" \
        -v $(dirname "${SSH_AUTH_SOCK}"):"$(dirname ${SSH_AUTH_SOCK})" \
        -v $(dirname "${GPG_AGENT_INFO}"):"$(dirname ${GPG_AGENT_INFO})" \
@@ -129,3 +131,18 @@ docker -H tcp://127.0.0.1:2375 run -u jenkins \
        -e GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL}" -e GPGKEYID="${GPGKEYID}" \
        -e PATCHES="${PATCHES}" -e GIT_PREVIOUS_COMMIT="${GIT_PREVIOUS_COMMIT}" \
        --rm ${IT} fransurbo/devel:${DIST} ${script}
+
+    if [ "$?" = "0" ]; then
+	# Success - exit success.
+	exit 0
+    elif [ "${cnt}" -ge "5" ]; then
+	# ERROR. And we've tried long enough - exit error.
+	echo "=> Tried five times, wouldn't start!"
+	exit 1
+    else
+	# Lets try again. In 30 seconds.
+	echo -n "."
+	cnt="$(expr "${cnt}" + 1)"
+	sleep 30
+    fi
+done
