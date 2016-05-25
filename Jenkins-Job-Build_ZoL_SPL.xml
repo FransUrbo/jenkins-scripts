@@ -151,6 +151,7 @@ echo &quot;export DIST=&apos;${DIST}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 
 echo &quot;export FORCE=&apos;${FORCE}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 echo &quot;export NOUPLOAD=&apos;${NOUPLOAD}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
+echo &quot;export PATCHES=&apos;${PATCHES}&apos;&quot; &gt;&gt; &quot;${FILE}&quot;
 
 exit 0
 </command>
@@ -243,14 +244,6 @@ rm -f &quot;${WORKSPACE}/.Build_ZoL_SPL_${BUILD_NUMBER}_env&quot;</command>
   </publishers>
   <buildWrappers>
     <hudson.plugins.timestamper.TimestamperBuildWrapper plugin="timestamper@1.7.4"/>
-    <EnvInjectBuildWrapper plugin="envinject@1.92.1">
-      <info>
-        <propertiesContent>GITNAME=&quot;User Name - Autobuilder&quot;
-GITEMAIL=&quot;USERNAME@DOMAIN.TLD&quot;
-GPGKEYID=&quot;4D5843EA&quot;</propertiesContent>
-        <loadFilesFromMaster>false</loadFilesFromMaster>
-      </info>
-    </EnvInjectBuildWrapper>
     <EnvInjectPasswordWrapper plugin="envinject@1.92.1">
       <injectGlobalPasswords>true</injectGlobalPasswords>
       <maskPasswordParameters>true</maskPasswordParameters>
@@ -262,6 +255,10 @@ GPGKEYID=&quot;4D5843EA&quot;</propertiesContent>
         <EnvInjectPasswordEntry>
           <name>GPGCACHEID</name>
           <value>SECRET_CACHEID</value>
+        </EnvInjectPasswordEntry>
+        <EnvInjectPasswordEntry>
+          <name>GPGKEYID</name>
+          <value>SECRET_KEYID</value>
         </EnvInjectPasswordEntry>
       </passwordEntries>
     </EnvInjectPasswordWrapper>
