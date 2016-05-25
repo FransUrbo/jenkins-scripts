@@ -228,7 +228,8 @@ if [ -e "/etc/debian_version" ]; then
     fi
 fi
 
-if [ "${BRANCH}" = "snapshot" -a "${PATCHES}" = "true" -a "${DIST}" != "wheezy" ]
+if [ "${BRANCH}" = "snapshot" -a "${PATCHES}" = "true" -a \
+     "${DIST}" != "wheezy" ]
 then
     # Force pull debian/patches from snapshot/debian/wheezy.
     # This allow us to update the patches in ONE branch manually,
@@ -239,14 +240,17 @@ then
 fi
 
 changed="$(git status | grep -E 'modified:|deleted:|new file:' | wc -l)"
-if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
-    # Only change the changelog if we have to!
+if [ "${changed}" -gt 0 ]; then
     commit="<<EOF
 New ${msg} release - ${patches_updated_msg}$(date -R)/${sha}.
 
 $(git log --pretty=oneline --abbrev-commit ${GIT_PREVIOUS_COMMIT}..HEAD)
 EOF
 "
+fi
+
+if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
+    # Only change the changelog if we have to!
     debchange --distribution "${dist}" --newversion "${pkg_version}" \
 	      --force-bad-version --force-distribution \
 	      --maintmaint "${commit}"
@@ -285,7 +289,17 @@ elif type yum > /dev/null 2>&1; then
     deps="$(grep ^BuildRequires: rpm/generic/${APP}.spec.in | sed 's@.*: @@')"
     if [ -n "${deps}" ]; then
 	echo "=> Installing package dependencies"
-	sudo yum install -y ${deps} > /dev/null 2>&1
+
+	# Newer Fedora uses "dnf" instead of "yum". Same parameters though,
+	# which is lucky..
+	type dnf > /dev/null 2>&1 && \
+	    pkg="dnf" || pkg="yum"
+
+	# Some of these might be already installed, but it's simpler
+	# just to try to install all of them, than to filter out those
+	# that already exists. Doesn't make one bit of difference, other
+	# than less coding :).
+	sudo ${pkg} install -y ${deps} > /dev/null 2>&1
 	if [ "$?" != "0" ]; then
 	    echo "   ERROR: install failed"
 	    exit 1
@@ -293,8 +307,9 @@ elif type yum > /dev/null 2>&1; then
     fi
 fi
 
-if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
-    git add META debian/changelog debian/gbp.conf
+if [ "${changed}" -gt 0 ]; then
+    [ -e "/etc/debian_version" ] && \
+	git add META debian/changelog debian/gbp.conf
     git commit -m "${commit}"
 fi
 
