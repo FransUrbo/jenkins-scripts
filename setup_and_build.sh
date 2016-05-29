@@ -2,7 +2,11 @@
 
 # Path to the actual build script. This should be the only manual change
 # needed.
-BUILD_SCRIPT="/tmp/docker_scratch/build_zol.sh"
+BUILD_SCRIPT="/tmp/scratch/build_zol.sh"
+
+# Docker resource limiting options
+# https://docs.docker.com/engine/reference/run/#runtime-constraints-on-resources
+DOCKER_OPTS="--memory=512MB --memory-swap=300MB"
 
 # ========================================================================
 # This is the primary build script (of two) intended to build ZFS On Linux
@@ -121,7 +125,7 @@ while /bin/true; do
        -v $(dirname "${SSH_AUTH_SOCK}"):"$(dirname ${SSH_AUTH_SOCK})" \
        -v $(dirname "${GPG_AGENT_INFO}"):"$(dirname ${GPG_AGENT_INFO})" \
        -v "${WORKSPACE_DIR}":"/home/jenkins/build" \
-       -v "${HOME}/docker_scratch":"/tmp/docker_scratch" \
+       -v "${HOME}/scratch":"/tmp/scratch" \
        -w "/home/jenkins/build/${DIST}" -e FORCE="${FORCE}" \
        -e JENKINS_HOME="${JENKINS_HOME}" -e APP="${APP}" \
        -e DIST="${DIST}" -e BRANCH="${BRANCH}" -e NOUPLOAD="${NOUPLOAD}" \
@@ -130,12 +134,13 @@ while /bin/true; do
        -e GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME}" -e payload="${payload}" \
        -e GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL}" -e GPGKEYID="${GPGKEYID}" \
        -e PATCHES="${PATCHES}" -e GIT_PREVIOUS_COMMIT="${GIT_PREVIOUS_COMMIT}" \
-       --rm ${IT} fransurbo/devel:${DIST} ${script}
-
-    if [ "$?" = "0" ]; then
+       --rm ${IT} ${DOCKER_OPTS} fransurbo/devel:${DIST} ${script}
+    res="$?"
+    
+    if [ "${res}" -eq "0" ]; then
 	# Success - exit success.
 	exit 0
-    elif [ "$?" = "1" ]; then
+    elif [ "${res}" -eq "1" ]; then
 	# Build script exited with failure - exit with error
 	echo "=> Build failed."
 	exit 1

@@ -31,11 +31,11 @@ fi
 # scratch dir), then use that.
 # To avoid a 'Do you really want to connect' question, make sure that the
 # hosts we're using is all in there.
-if [ ! -f "${HOME}/.ssh/known_hosts" -a "/tmp/docker_scratch/known_hosts" ]
+if [ ! -f "${HOME}/.ssh/known_hosts" -a "/tmp/scratch/known_hosts" ]
 then
     # We probably don't have the .ssh directory either, so create it.
     [ -d "${HOME}/.ssh" ] || mkdir -p "${HOME}/.ssh"
-    cp /tmp/docker_scratch/known_hosts "${HOME}/.ssh/known_hosts"
+    cp /tmp/scratch/known_hosts "${HOME}/.ssh/known_hosts"
 fi
 
 
@@ -127,7 +127,7 @@ else
 fi
 
 # 3. Make sure that the code in the branch have changed.
-file="/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
+file="/tmp/scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
 sha="$(git log --pretty=oneline --abbrev-commit ${branch} | \
     head -n1 | sed 's@ .*@@')"
 if [ "${FORCE}" = "false" -o -z "${FORCE}" ] && [ -f "${file}" ]; then
@@ -299,7 +299,7 @@ elif type yum > /dev/null 2>&1; then
 	# just to try to install all of them, than to filter out those
 	# that already exists. Doesn't make one bit of difference, other
 	# than less coding :).
-	sudo ${pkg} install -y ${deps} > /dev/null 2>&1
+	sudo ${pkg} install -y ${deps}
 	if [ "$?" != "0" ]; then
 	    echo "   ERROR: install failed"
 	    exit 1
@@ -342,12 +342,12 @@ elif type rpmbuild > /dev/null 2>&1; then
 		patch -p1 < "debian/patches/${patch}"
 	    done
     fi
-    if [ "${APP}" = "zfs" -a -f "/tmp/docker_scratch/rpm_zfs-EXTRA_DIST.patch" ]
+    if [ "${APP}" = "zfs" -a -f "/tmp/scratch/rpm_zfs-EXTRA_DIST.patch" ]
     then
 	# This patch is to make sure that the examples in etc/zfs
 	# is included in the source RPM.
 	echo "=> Applying rpm fixes"
-	cat /tmp/docker_scratch/rpm_zfs-EXTRA_DIST.patch | \
+	cat /tmp/scratch/rpm_zfs-EXTRA_DIST.patch | \
 	    patch -p0
     fi
     
@@ -439,6 +439,6 @@ fi
 
 # Record changes
 echo "=> Recording successful build (${sha})"
-echo "${sha}" > "/tmp/docker_scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
+echo "${sha}" > "/tmp/scratch/lastSuccessfulSha-${APP}-${DIST}-${BRANCH}"
 
 exit 0
