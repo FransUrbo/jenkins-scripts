@@ -37,7 +37,7 @@ Centos 5: Not supported by ZoL</description>
         <hudson.model.BooleanParameterDefinition>
           <name>PATCHES</name>
           <description>Pull debian/patches from snapshot/debian/wheezy.</description>
-          <defaultValue>false</defaultValue>
+          <defaultValue>true</defaultValue>
         </hudson.model.BooleanParameterDefinition>
       </parameterDefinitions>
     </hudson.model.ParametersDefinitionProperty>
