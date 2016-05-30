@@ -9,7 +9,7 @@ BUILD_SCRIPT="/tmp/scratch/build_zol.sh"
 DOCKER_OPTS="--memory=512MB --memory-swap=300MB"
 
 # What container engine to use ('lxc' or 'docker').
-CONTAINER_ENGINE="lxc"
+[ -z "${CONTAINER_ENGINE}" ] && CONTAINER_ENGINE="docker"
 
 # ========================================================================
 # This is the primary build script (of two) intended to build ZFS On Linux
