@@ -52,7 +52,9 @@ elif type apt-get > /dev/null 2>&1; then
    apt-get update
    apt-get install -y build-essential autoconf automake \
 	   libtool sudo git make linux-headers-amd64 autogen debhelper \
-	   dupload dkms devscripts git-buildpackage iputils-ping
+	   dupload dkms devscripts git-buildpackage iputils-ping \
+	   libselinux1-dev uuid-dev zlib1g-dev libblkid-dev dh-systemd \
+	   chrpath libattr1-dev apt-utils
    apt-get clean
 fi
 

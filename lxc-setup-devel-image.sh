@@ -27,4 +27,4 @@ lxc copy ${DIST}/${DIST}-devel local:${DIST}-devel
 lxc delete ${DIST}
 lxc publish local:${DIST}-devel --alias ${DIST}-devel
 lxc delete ${DIST}-devel
-lxc image show ${DIST} | sed s@\(description:.*\)@\1 - devel install@ | lxc image edit ${DIST}-devel
+lxc image show ${DIST} | sed "s@\(description:.*\)@\1 - devel install@" | lxc image edit ${DIST}-devel

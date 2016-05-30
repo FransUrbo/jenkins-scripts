@@ -8,6 +8,9 @@ BUILD_SCRIPT="/tmp/scratch/build_zol.sh"
 # https://docs.docker.com/engine/reference/run/#runtime-constraints-on-resources
 DOCKER_OPTS="--memory=512MB --memory-swap=300MB"
 
+# What container engine to use ('lxc' or 'docker').
+CONTAINER_ENGINE="lxc"
+
 # ========================================================================
 # This is the primary build script (of two) intended to build ZFS On Linux
 # Debian GNU/Linux packages.
@@ -80,12 +83,16 @@ then
     exit 1
 fi
 
-stop_gpg_agent() {
+cleanup() {
     # Kill the GPG Agent
     echo "${GPG_AGENT_INFO}" | sed "s,.*:\(.*\):.*,\1," | \
         xargs --no-run-if-empty kill
+
+    # Kill the LXC container (don't care if it exists or not).
+    [ "${CONTAINER_ENGINE}" = "lxc" ] && \
+	lxc stop "${DIST}-devel" --force > /dev/null 2>&1
 }
-trap stop_gpg_agent EXIT
+trap cleanup EXIT
 
 # This can be randomized if it's not supplied. This so that we
 # can run this from the shell if we want to.
@@ -100,10 +107,16 @@ fi
 echo "=> Setting up a Docker build (${APP}/${DIST}/${BRANCH})"
 
 if echo "$*" | grep -q bash; then
-    # Should be interactive...
-    IT="-it" # Run Docker container interactivly
-    script="bash" # Shell to spawn in Docker container
+    # Run container interactive...
+    if [ "${CONTAINER_ENGINE}" = "docker" ]; then
+	IT="-it"
+    elif [ "${CONTAINER_ENGINE}" = "lxc" ]; then
+	IT="--mode=interactive"
+    fi
+
+    script="/bin/bash -li" # Shell to spawn in container
 else
+    [ "${CONTAINER_ENGINE}" = "lxc" ] && IT="--mode=non-interactive"
     script="${BUILD_SCRIPT} ${APP} ${DIST} ${BRANCH}"
 fi
 
@@ -120,28 +133,116 @@ echo "${GPGPASS}" | /usr/lib/gnupg2/gpg-preset-passphrase -v -c ${GPGCACHEID}
 set +e ; cnt=0
 echo "=> Starting docker image fransurbo/devel:${DIST}"
 while /bin/true; do
-    docker -H tcp://127.0.0.1:2375 run -u jenkins \
-       -v "${HOME}/.gnupg":"/home/jenkins/.gnupg" \
-       -v $(dirname "${SSH_AUTH_SOCK}"):"$(dirname ${SSH_AUTH_SOCK})" \
-       -v $(dirname "${GPG_AGENT_INFO}"):"$(dirname ${GPG_AGENT_INFO})" \
-       -v "${WORKSPACE_DIR}":"/home/jenkins/build" \
-       -v "${HOME}/scratch":"/tmp/scratch" \
-       -w "/home/jenkins/build/${DIST}" -e FORCE="${FORCE}" \
-       -e JENKINS_HOME="${JENKINS_HOME}" -e APP="${APP}" \
-       -e DIST="${DIST}" -e BRANCH="${BRANCH}" -e NOUPLOAD="${NOUPLOAD}" \
-       -e LOGNAME="${LOGNAME}" -e SSH_AUTH_SOCK="${SSH_AUTH_SOCK}" \
-       -e GPG_AGENT_INFO="${GPG_AGENT_INFO}" -e WORKSPACE="${WORKSPACE}" \
-       -e GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME}" -e payload="${payload}" \
-       -e GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL}" -e GPGKEYID="${GPGKEYID}" \
-       -e PATCHES="${PATCHES}" -e GIT_PREVIOUS_COMMIT="${GIT_PREVIOUS_COMMIT}" \
-       --rm ${IT} ${DOCKER_OPTS} fransurbo/devel:${DIST} ${script}
-    res="$?"
-    
+    # Launch the container.
+    if [ "${CONTAINER_ENGINE}" = "docker" ]; then
+	docker -H tcp://127.0.0.1:2375 run -u jenkins \
+	    -v "${HOME}/.gnupg":"/home/jenkins/.gnupg" \
+	    -v $(dirname "${SSH_AUTH_SOCK}"):"$(dirname ${SSH_AUTH_SOCK})" \
+	    -v $(dirname "${GPG_AGENT_INFO}"):"$(dirname ${GPG_AGENT_INFO})" \
+	    -v "${WORKSPACE_DIR}":"/home/jenkins/build" \
+	    -v "${HOME}/scratch":"/tmp/scratch" \
+	    -w "/home/jenkins/build/${DIST}" \
+	    -e FORCE="${FORCE}" \
+	    -e NOUPLOAD="${NOUPLOAD}" \
+	    -e PATCHES="${PATCHES}" \
+	    -e APP="${APP}" \
+	    -e DIST="${DIST}" \
+	    -e BRANCH="${BRANCH}" \
+	    -e JENKINS_HOME="${JENKINS_HOME}" \
+	    -e LOGNAME="${LOGNAME}" \
+	    -e SSH_AUTH_SOCK="${SSH_AUTH_SOCK}" \
+	    -e GPG_AGENT_INFO="${GPG_AGENT_INFO}" \
+	    -e GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME}" \
+	    -e GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL}" \
+	    -e GIT_PREVIOUS_COMMIT="${GIT_PREVIOUS_COMMIT}" \
+	    -e GPGKEYID="${GPGKEYID}" \
+	    -e WORKSPACE="${WORKSPACE}" \
+	    -e payload="${payload}" \
+	    --rm ${IT} ${DOCKER_OPTS} fransurbo/devel:${DIST} ${script}
+	res="$?"
+    elif [ "${CONTAINER_ENGINE}" = "lxc" ]; then
+	#    -c limits.cpu.allowance=50% \
+	# => error: Error calling 'lxd forkstart wheezy-devel /var/lib/lxd/containers /var/log/lxd/wheezy-devel/lxc.conf': err='exit status 1'
+	lxc launch -e "${DIST}-devel" "${DIST}-devel" \
+	    -c limits.cpu=1 \
+	    -c limits.memory=512MB \
+	    -c limits.memory.enforce=hard \
+	    -c security.privileged=true \
+	    -c environment.FORCE="${FORCE}" \
+	    -c environment.NOUPLOAD="${NOUPLOAD}" \
+	    -c environment.PATCHES="${PATCHES}" \
+	    -c environment.APP="${APP}" \
+	    -c environment.DIST="${DIST}" \
+	    -c environment.BRANCH="${BRANCH}" \
+	    -c environment.JENKINS_HOME="${JENKINS_HOME}" \
+	    -c environment.LOGNAME="${LOGNAME}" \
+	    -c environment.SSH_AUTH_SOCK="${SSH_AUTH_SOCK}" \
+	    -c environment.GPG_AGENT_INFO="${GPG_AGENT_INFO}" \
+	    -c environment.GIT_AUTHOR_NAME="${GIT_AUTHOR_NAME}" \
+	    -c environment.GIT_AUTHOR_EMAIL="${GIT_AUTHOR_EMAIL}" \
+	    -c environment.GIT_PREVIOUS_COMMIT="${GIT_PREVIOUS_COMMIT}" \
+	    -c environment.GPGKEYID="${GPGKEYID}" \
+	    -c environment.WORKSPACE="${WORKSPACE}" \
+	    -c environment.payload="${payload}"
+	[ "$?" -ge 1 ] && continue
+	
+	# Attach directories.
+	lxc config device add "${DIST}-devel" gnupg disk \
+	    source="${HOME}/.gnupg" path="/home/jenkins/.gnupg"
+	if [ "$?" -ge 1 ]; then
+	    lxc stop "${DIST}-devel"
+	    continue
+	fi
+
+	dir="$(dirname "${SSH_AUTH_SOCK}")"
+	lxc config device add "${DIST}-devel" sshsock disk \
+	    source="${dir}" path="${dir}"
+	if [ "$?" -ge 1 ]; then
+	    lxc stop "${DIST}-devel"
+	    continue
+	fi
+
+	dir="$(dirname "${GPG_AGENT_INFO}")"
+	lxc config device add "${DIST}-devel" gpgagent disk \
+	    source="${dir}" path="${dir}"
+	if [ "$?" -ge 1 ]; then
+	    lxc stop "${DIST}-devel"
+	    continue
+	fi
+
+	lxc config device add "${DIST}-devel" workspace disk \
+	    source="${WORKSPACE_DIR}" path="/home/jenkins/build" \
+	    recursive=true
+	if [ "$?" -ge 1 ]; then
+	    lxc stop "${DIST}-devel"
+	    continue
+	fi
+
+	lxc config device add "${DIST}-devel" scratch disk \
+	    source="${HOME}/scratch" path="/tmp/scratch"
+	if [ "$?" -ge 1 ]; then
+	    lxc stop "${DIST}-devel"
+	    continue
+	fi
+
+	# Run script in the container.
+	lxc exec ${IT} "${DIST}-devel" -- /tmp/scratch/lxc-wrapper.sh ${script}
+	res=$?
+    else
+	echo "ERROR: Unknown engine '${CONTAINER_ENGINE}'"
+	exit 1
+    fi
+
+    # No matter what, we need to shutdown the LXC container, So it can be
+    # recreated.
+    [ "${CONTAINER_ENGINE}" = "lxc" ] && lxc stop "${DIST}-devel" --force
+
+    # Check build result.
     if [ "${res}" -eq "0" ]; then
-	# Success - exit success.
+	# Build script exited with success - exit success.
 	exit 0
     elif [ "${res}" -eq "1" ]; then
-	# Build script exited with failure - exit with error
+	# Build script exited with failure - exit with error.
 	echo "=> Build failed."
 	exit 1
     elif [ "${cnt}" -ge "5" ]; then
