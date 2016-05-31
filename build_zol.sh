@@ -274,6 +274,8 @@ if [ -e "/etc/debian_version" ]; then
     deps="$(dpkg-checkbuilddeps 2>&1 | \
 	sed -e 's,.*dependencies: ,,' -e 's, (.*,,')"
     while [ -n "${deps}" ]; do
+	export PATH="${PATH}:/usr/sbin:/sbin"
+
 	echo "=> Installing package dependencies"
 	sudo apt-get update > /dev/null 2>&1
 	sudo apt-get install -y ${deps} > /dev/null 2>&1
