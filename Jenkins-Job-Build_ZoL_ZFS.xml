@@ -132,7 +132,7 @@ Centos 5: Not supported by ZoL</description>
     <hudson.tasks.Shell>
       <command>#!/bin/sh -xe
 
-FILE=&quot;${JENKINS_HOME}/docker_scratch/.Build_ZoL_ZFS_${BUILD_NUMBER}_env&quot;
+FILE=&quot;${JENKINS_HOME}/scratch/.Build_ZoL_ZFS_${BUILD_NUMBER}_env&quot;
 
 : &gt; &quot;${FILE}&quot;
 chmod 600 &quot;${FILE}&quot;
@@ -171,7 +171,7 @@ exit 0
         <hudson.tasks.Shell>
           <command>#!/bin/sh
 
-mv &quot;${JENKINS_HOME}/docker_scratch/.Build_ZoL_ZFS_${BUILD_NUMBER}_env&quot; \
+mv &quot;${JENKINS_HOME}/scratch/.Build_ZoL_ZFS_${BUILD_NUMBER}_env&quot; \
 	&quot;${WORKSPACE}/.Build_ZoL_ZFS_${BUILD_NUMBER}_env&quot;</command>
         </hudson.tasks.Shell>
         <jenkins.plugins.publish__over__ssh.BapSshBuilderPlugin plugin="publish-over-ssh@1.14">
