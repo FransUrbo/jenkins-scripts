@@ -9,7 +9,7 @@ while ! ping -c1 github.com; do sleep 10; done
 apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 8E234FB17DFFA34D
 
 # Update sources.list
-cat <<EOF > /etc/apt/sources.list.d/zol
+cat <<EOF > /etc/apt/sources.list.d/zol.list
 deb [arch=amd64] http://celia.bayour.com/debian-zol ${DIST} main
 EOF
 
