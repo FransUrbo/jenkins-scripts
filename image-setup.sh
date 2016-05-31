@@ -39,6 +39,17 @@ package config;
 1;
 EOF
 
+if type apt-get > /dev/null 2>&1; then
+    # Get the key for ZoL
+    apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 8E234FB17DFFA34D
+
+    # Update sources.list
+    cat <<EOF > /etc/apt/sources.list.d/zol
+deb [arch=amd64] http://celia.bayour.com/debian-zol ${DIST} main
+EOF
+fi
+
+# Install basic build packages
 if type dnf > /dev/null 2>&1; then
    dnf install rpm-build autoconf automake libtool sudo git kernel-devel kernel-headers make
 elif type yum > /dev/null 2>&1; then
