@@ -23,7 +23,18 @@ else
    echo 'jenkins ALL=(ALL:ALL) NOPASSWD: ALL' >> /etc/sudoers
 fi
 
-cat <<EOF > /etc/dupload.conf
+cat <<EOF > ~/.bash_aliases
+export PATH="\${PATH}:/usr/sbin:/sbin"
+
+alias ps="/bin/ps faxwww"
+alias ls="/bin/ls -CF"
+alias ll="ls -l"
+alias la="ls -a"
+EOF
+
+if type apt-get > /dev/null 2>&1; then
+    # Setup a dupload config file
+    cat <<EOF > /etc/dupload.conf
 package config;
 \$default_host = "celia";
 \$preupload{'changes'} = '/usr/share/dupload/gpg-check %1';
@@ -39,7 +50,6 @@ package config;
 1;
 EOF
 
-if type apt-get > /dev/null 2>&1; then
     # Get the key for ZoL
     apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 8E234FB17DFFA34D
 
@@ -65,7 +75,7 @@ elif type apt-get > /dev/null 2>&1; then
 	   libtool sudo git make linux-headers-amd64 autogen debhelper \
 	   dupload dkms devscripts git-buildpackage iputils-ping \
 	   libselinux1-dev uuid-dev zlib1g-dev libblkid-dev dh-systemd \
-	   chrpath libattr1-dev apt-utils
+	   chrpath libattr1-dev apt-utils quilt
    apt-get clean
 fi
 
