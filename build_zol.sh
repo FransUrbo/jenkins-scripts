@@ -240,7 +240,7 @@ then
 fi
 
 changed="$(git status | grep -E 'modified:|deleted:|new file:' | wc -l)"
-if [ "${changed}" -gt 0 ]; then
+if [ "${changed}" -gt 0 -o "${FORCE}" != "true" ]; then
     commit="<<EOF
 New ${msg} release - ${patches_updated_msg}$(date -R)/${sha}.
 
@@ -249,7 +249,8 @@ EOF
 "
 fi
 
-if [ -e "/etc/debian_version" -a "${changed}" -gt 0 ]; then
+if [ -e "/etc/debian_version" ] && [ "${changed}" -gt 0 -o "${FORCE}" != "true" ];
+then
     # Only change the changelog if we have to!
     debchange --distribution "${dist}" --newversion "${pkg_version}" \
 	      --force-bad-version --force-distribution \
